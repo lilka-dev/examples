@@ -224,6 +224,7 @@ function Tracker:calculateTiles()
     -- видалення зайвих тайлів
     for key, value in pairs(self.tiles) do
         if tiles[key] == nil then
+            resources.delete(self.tiles[key])
             self.tiles[key] = nil
         end
     end
@@ -303,6 +304,7 @@ function Tracker:draw()
 
     -- малюємо координати
     draw_text(string.format("%.5f  %.5f", self.latitude, self.longitude), SCREEN_WIDTH / 2, FONT_HEIGHT / 2, WHITE)
+	--draw_text(string.format("%dkB/%dkB", math.floor(util.free_ram() / 1024), math.floor(util.total_ram() / 1024)), SCREEN_WIDTH / 2, FONT_HEIGHT / 2, WHITE)
     if self.gps.latitude ~= nil and self.gps.longitude ~= nil then
         draw_text(string.format("%.5f  %.5f  %d", self.gps.latitude, self.gps.longitude, self.gps.sats), SCREEN_WIDTH / 2, SCREEN_HEIGHT - FONT_HEIGHT / 2, YELLOW)
     end
