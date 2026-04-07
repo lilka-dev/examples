@@ -15,8 +15,8 @@ let dy = 0;
 let length = 5;
 
 // Food
-let foodX = math.random(cols);
-let foodY = math.random(rows);
+let foodX = math.floor(math.random() * cols);
+let foodY = math.floor(math.random() * rows);
 
 let score = 0;
 let gameOver = false;
@@ -53,23 +53,23 @@ while (running) {
         }
 
         if (!gameOver) {
-            // Add new head
-            snakeX.unshift(newX);
-            snakeY.unshift(newY);
+            // Add new head using splice(0, 0, newX) instead of unshift
+            snakeX.splice(0, 0, newX);
+            snakeY.splice(0, 0, newY);
 
             // Check food
             if (newX === foodX && newY === foodY) {
                 score = score + 1;
                 length = length + 2;
-                foodX = math.random(cols);
-                foodY = math.random(rows);
+                foodX = math.floor(math.random() * cols);
+                foodY = math.floor(math.random() * rows);
                 buzzer.play(notes.C5, 50);
             }
 
-            // Trim tail
+            // Trim tail using splice instead of pop
             while (snakeX.length > length) {
-                snakeX.pop();
-                snakeY.pop();
+                snakeX.splice(snakeX.length - 1, 1);
+                snakeY.splice(snakeY.length - 1, 1);
             }
         }
     }

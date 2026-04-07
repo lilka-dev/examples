@@ -28,11 +28,10 @@ while (running) {
     display.print("Used: ", pct, "%");
 
     // RAM bar
-    let barW = w - 40;
     let barX = 20;
     let barY = 110;
-    display.draw_rect(barX, barY, w - 40, 15, colors.white);
-    let fillW = math.round((w - 42) * usedRam / totalRam);
+    display.draw_rect(barX, barY, display.width - 40, 15, colors.white);
+    let fillW = math.round((display.width - 42) * usedRam / totalRam);
     let barColor = colors.green;
     if (pct > 70) {
         barColor = colors.yellow;

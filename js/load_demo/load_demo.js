@@ -2,15 +2,8 @@
 //
 // Цей приклад показує як розбити код на кілька файлів
 // та підключити їх через вбудовану функцію load().
-//
-// Структура:
-//   load_demo/
-//     load_demo.js    — головний скрипт (цей файл)
-//     utils.js        — допоміжні функції (drawBorder, drawCentered, randomColor, clamp)
-//     particles.js    — система частинок (spawnParticle, updateParticles, drawParticles)
 
 // Завантажуємо допоміжні модулі
-// load() виконує файл і всі функції стають доступні в поточному scope
 load('utils.js');
 load('particles.js');
 
@@ -30,21 +23,29 @@ while (true) {
     let state = controller.get_state();
 
     // Рухаємо курсор
-    if (state.up) cursorY = cursorY - speed;
-    if (state.down) cursorY = cursorY + speed;
-    if (state.left) cursorX = cursorX - speed;
-    if (state.right) cursorX = cursorX + speed;
+    if (state.up.pressed) {
+        cursorY = cursorY - speed;
+    }
+    if (state.down.pressed) {
+        cursorY = cursorY + speed;
+    }
+    if (state.left.pressed) {
+        cursorX = cursorX - speed;
+    }
+    if (state.right.pressed) {
+        cursorX = cursorX + speed;
+    }
 
     // Обмежуємо межами екрану (функція з utils.js)
     cursorX = clamp(cursorX, 10, 310);
     cursorY = clamp(cursorY, 10, 230);
 
     // Кнопка A — створити частинки (функція з particles.js)
-    if (state.a) {
+    if (state.a.pressed) {
         let j = 0;
         while (j < 5) {
             spawnParticle(cursorX, cursorY);
-            j++;
+            j = j + 1;
         }
     }
 
@@ -71,17 +72,19 @@ while (true) {
     display.set_cursor(5, 225);
     display.set_text_size(1);
     display.set_text_color(white);
-    display.print("D-pad: move | A: particles | Particles: " + JSON.stringify(particles.length));
+    display.print("D-pad:move A:particles Count:", particles.length);
 
-    display.render();
+    display.queue_draw();
 
     // Вихід
-    if (state.start) break;
+    if (state.start.just_pressed) {
+        break;
+    }
 
-    util.sleep(16);
-    frame++;
+    util.sleep(0.016);
+    frame = frame + 1;
 }
 
 drawCentered("Bye!", 110, yellow, 2);
-display.render();
-util.sleep(1000);
+display.queue_draw();
+util.sleep(1);
