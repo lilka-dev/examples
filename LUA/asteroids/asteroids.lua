@@ -18,11 +18,7 @@ WHITE = display.color565(255, 255, 255)
 BLACK = display.color565(0, 0, 0)
 MAGENTA = display.color565(255, 0, 255)
 
--- TODO: Виколистовується, якщо потрібно запускати гру через режим "Live Lua"
--- ROOT = 'asteroids/'
-ROOT = ''
-
--- lilka.show_fps = true
+--lilka.show_fps = true
 
 -------------------------------------------------------------------------------
 -- Загальні константи
@@ -36,339 +32,10 @@ display.set_cursor(8, display.height / 2 - 8)
 display.print("Завантаження...")
 display.queue_draw()
 
--------------------------------------------------------------------------------
--- Завантаження ресурсів
--------------------------------------------------------------------------------
-
-SHIP_SPRITES = { resources.load_image(ROOT .. "ship.bmp", MAGENTA) }
-SHIP_FORWARD_SPRITES = { resources.load_image(ROOT .. "ship_forward.bmp", MAGENTA) }
-SHIP_BACKWARD_SPRITES = { resources.load_image(ROOT .. "ship_backward.bmp", MAGENTA) }
-for i = 2, ANGLE_COUNT do
-    local angle = i - 1
-    SHIP_SPRITES[i] = resources.rotate_image(SHIP_SPRITES[1], angle * ANGLE_STEP, MAGENTA)
-    SHIP_FORWARD_SPRITES[i] = resources.rotate_image(SHIP_FORWARD_SPRITES[1], angle * ANGLE_STEP, MAGENTA)
-    SHIP_BACKWARD_SPRITES[i] = resources.rotate_image(SHIP_BACKWARD_SPRITES[1], angle * ANGLE_STEP, MAGENTA)
-end
-
-ASTEROID_16_SPRITES = { resources.load_image(ROOT .. "asteroid_16.bmp", MAGENTA) }
-ASTEROID_32_SPRITES = { resources.load_image(ROOT .. "asteroid_32.bmp", MAGENTA) }
-ASTEROID_48_SPRITES = { resources.load_image(ROOT .. "asteroid_48.bmp", MAGENTA) }
-ASTEROID_64_SPRITES = { resources.load_image(ROOT .. "asteroid_64.bmp", MAGENTA) }
-for i = 2, 8 do
-    ASTEROID_16_SPRITES[i] = resources.rotate_image(ASTEROID_16_SPRITES[1], i * 45, MAGENTA)
-    ASTEROID_32_SPRITES[i] = resources.rotate_image(ASTEROID_32_SPRITES[1], i * 45, MAGENTA)
-    ASTEROID_48_SPRITES[i] = resources.rotate_image(ASTEROID_48_SPRITES[1], i * 45, MAGENTA)
-    ASTEROID_64_SPRITES[i] = resources.rotate_image(ASTEROID_64_SPRITES[1], i * 45, MAGENTA)
-end
-
-BANNER = {}
-for i = 1, 4 do
-    BANNER[i] = resources.load_image(ROOT .. "banner" .. i .. ".bmp")
-end
-PRESS_START = resources.load_image(ROOT .. "press_start.bmp")
-YOU_ARE_DEAD = resources.load_image(ROOT .. "game_over.bmp")
-
--- Buzzer sound for shooting.
--- First element of each item is frequency, second is note size.
-SHOOT_SOUND = {
-    {880, 8},
-    {784, 8},
-    {698, 8},
-    {659, 8},
-    {587, 8},
-    {523, 8},
-    {440, 8},
-    {392, 8},
-    {349, 8},
-    {330, 8},
-    {294, 8},
-    {262, 8},
-}
-
-BOOM_SOUND = {
-    { 440, 8 },
-    { 392, 8 },
-    { 349, 8 },
-    { 330, 8 },
-    { 294, 8 },
-    { 262, 8 },
-    { 220, 8 },
-    { 196, 8 },
-    { 175, 8 },
-    { 165, 8 },
-    { 147, 8 },
-    { 131, 8 },
-    { 123, 8 },
-    { 110, 8 },
-    { 98, 8 },
-    { 88, 8 },
-}
-
--- Low-pitch (100-200 Hz) noise.
-DEATH_SOUND = {
-    { 200, 8 },
-    { 100, 8 },
-    { 150, 8 },
-    { 200, 8 },
-    { 100, 8 },
-    { 150, 8 },
-    { 100, 8 },
-    { 150, 8 },
-    { 100, 8 },
-    { 150, 8 },
-    { 50, 8 },
-    { 100, 8 },
-    { 50, 8 },
-    { 100, 8 },
-    { 50, 8 },
-    { 100, 8 },
-    { 50, 8 },
-    { 100, 8 },
-    { 50, 8 },
-    { 100, 8 },
-    { 50, 8 },
-}
-
--------------------------------------------------------------------------------
--- Ігрові класи
--------------------------------------------------------------------------------
-
---
--- Корабель, яким керує гравець
---
-
-Ship = {
-    x = display.width / 2,
-    y = display.height / 2,
-    width = SHIP_SPRITES[1].width, -- Розмір спрайту
-    height = SHIP_SPRITES[1].height,
-    sprites = SHIP_SPRITES,
-    forward_sprites = SHIP_FORWARD_SPRITES,
-    backward_sprites = SHIP_BACKWARD_SPRITES,
-    rotation = 270, -- Кут обороту корабля в градусах за годинниковою стрілкою
-    speed_x = 0,
-    speed_y = 0,
-    accel_forward = 0,
-    angular_speed = 0,
-    max_speed_x = display.width / 2,
-    max_speed_y = display.width / 2,
-    killed_at = -1,
-    dead = false,
-    -- accel_y = 0,
-}
-function Ship:new(o)
-    o = o or {}
-    setmetatable(o, self)
-    self.__index = self
-    return o
-end
-
-function Ship:set_forward_acceleration(accel)
-    self.accel_forward = accel
-end
-
-function Ship:set_angular_speed(speed)
-    self.angular_speed = speed
-end
-
-function Ship:kill()
-    self.killed_at = util.time()
-    self.dead = true
-end
-
-function Ship:update(delta)
-    local dir_x, dir_y = math.rotate(1, 0, self.rotation)
-
-    self.speed_x = self.speed_x + self.accel_forward * delta * dir_x
-    self.speed_y = self.speed_y + self.accel_forward * delta * dir_y
-
-    self.speed_x = math.clamp(self.speed_x, -self.max_speed_x, self.max_speed_x)
-    self.speed_y = math.clamp(self.speed_y, -self.max_speed_y, self.max_speed_y)
-
-    self.x = self.x + self.speed_x * delta
-    self.y = self.y + self.speed_y * delta
-
-    self.x = self.x % display.width
-    self.y = self.y % display.height
-
-    self.rotation = (self.rotation + self.angular_speed * delta) % 360
-end
-
-function Ship:draw()
-    if self.dead then
-        local time_since_death = util.time() - self.killed_at
-        -- Малюємо коло, яке збільшується та зменшується впродовж 1 секунди
-        if time_since_death < 1 then
-            local radius = math.sin(time_since_death * 2 * math.pi) * 32
-            display.fill_circle(self.x, self.y, radius, WHITE)
-        end
-    else
-        local rotation_index = math.floor(self.rotation / ANGLE_STEP) + 1
-        -- Координати верхнього лівого кута спрайту
-        local cx = self.x - self.width / 2
-        local cy = self.y - self.height / 2
-
-        local sprite_set
-        if self.accel_forward > 0 then
-            sprite_set = self.forward_sprites
-        elseif self.accel_forward < 0 then
-            sprite_set = self.backward_sprites
-        else
-            sprite_set = self.sprites
-        end
-
-        display.draw_image(sprite_set[rotation_index], cx, cy)
-        -- Якщо ми біля краю екрану, малюємо корабель ще раз на протилежному боці
-        if cx < 0 then
-            display.draw_image(sprite_set[rotation_index], cx + display.width, cy)
-        elseif cx + self.width > display.width then
-            display.draw_image(sprite_set[rotation_index], cx - display.width, cy)
-        end
-        if cy < 0 then
-            display.draw_image(sprite_set[rotation_index], cx, cy + display.height)
-        elseif cy + self.height > display.height then
-            display.draw_image(sprite_set[rotation_index], cx, cy - display.height)
-        end
-    end
-end
-
---
--- Куля, якою стріляє корабель
---
-
-Bullet = {
-    x = 0,
-    y = 0,
-    speed_x = 0,
-    speed_y = 0,
-    distance_traveled = 0,
-    dead = false,
-
-    radius = 1,
-    max_distance = math.sqrt(display.width * display.width + display.height * display.height) / 2,
-}
-
-function Bullet:new(x, y)
-    local o = { x = x, y = y }
-    setmetatable(o, self)
-    self.__index = self
-    return o
-end
-
-function Bullet:update(delta)
-    if self.dead then
-        return
-    end
-    local dx = self.speed_x * delta
-    local dy = self.speed_y * delta
-    self.x = self.x + dx
-    self.y = self.y + dy
-    -- Якщо куля виходить за межі екрану, вона з'являється на протилежному боці
-    self.x = self.x % display.width
-    self.y = self.y % display.height
-
-    -- Коли куля долає велику відстань, вона вмирає
-    self.distance_traveled = self.distance_traveled + math.sqrt(dx * dx + dy * dy)
-    if self.distance_traveled > self.max_distance then
-        self.dead = true
-    end
-end
-
-function Bullet:kill()
-    self.dead = true
-end
-
-function Bullet:draw()
-    display.fill_circle(self.x, self.y, self.radius, WHITE)
-end
-
---
--- Астероїд, який рухається по екрану
---
-
-Asteroid = {
-    x = 0,
-    y = 0,
-    speed_x = 0,
-    speed_y = 0,
-    size = 0,
-    --- @type table|nil
-    sprite = nil,
-    offscreen = false,
-    killed_at = -1,
-    dead = false,
-}
-
-function Asteroid:new(x, y, speed_x, speed_y)
-    local size = math.random(1, 4)
-    local sprite
-    if size == 1 then
-        sprite = ASTEROID_16_SPRITES[math.random(1, 8)]
-    elseif size == 2 then
-        sprite = ASTEROID_32_SPRITES[math.random(1, 8)]
-    elseif size == 3 then
-        sprite = ASTEROID_48_SPRITES[math.random(1, 8)]
-    else
-        sprite = ASTEROID_64_SPRITES[math.random(1, 8)]
-    end
-    local o = {
-        x = x,
-        y = y,
-        speed_x = speed_x,
-        speed_y = speed_y,
-        size = size,
-        sprite = sprite,
-        offscreen = x < sprite.width / 2 or x > display.width - sprite.width / 2 or y < sprite.width / 2 or
-            y > display.height - sprite.height / 2,
-    }
-    setmetatable(o, self)
-    self.__index = self
-    return o
-end
-
-function Asteroid:update(delta)
-    self.x = self.x + self.speed_x * delta
-    self.y = self.y + self.speed_y * delta
-    if self.offscreen then
-        self.offscreen = self.x < self.sprite.width / 2 or self.x > display.width - self.sprite.width / 2 or
-            self.y < self.sprite.width / 2 or self.y > display.height - self.sprite.height / 2
-    else
-        self.x = self.x % display.width
-        self.y = self.y % display.height
-    end
-end
-
-function Asteroid:kill()
-    self.killed_at = util.time()
-    self.dead = true
-end
-
-function Asteroid:draw()
-    if self.dead then
-        local time_since_death = util.time() - self.killed_at
-        -- Малюємо коло, яке збільшується та зменшується впродовж 1 секунди
-        if time_since_death < 1 then
-            local radius = math.sin(time_since_death * 2 * math.pi) * self.sprite.width / 2
-            display.fill_circle(self.x, self.y, radius, WHITE)
-        end
-    else
-        local cx = self.x - self.sprite.width / 2
-        local cy = self.y - self.sprite.height / 2
-        display.draw_image(self.sprite, cx, cy)
-        if not self.offscreen then
-            if cx < 0 then
-                display.draw_image(self.sprite, cx + display.width, cy)
-            elseif cx + self.sprite.width > display.width then
-                display.draw_image(self.sprite, cx - display.width, cy)
-            end
-            if cy < 0 then
-                display.draw_image(self.sprite, cx, cy + display.height)
-            elseif cy + self.sprite.height > display.height then
-                display.draw_image(self.sprite, cx, cy - display.height)
-            end
-        end
-    end
-end
+data = require("modules.data")
+Ship = require("modules.ship")
+Bullet = require("modules.bullet")
+Asteroid = require("modules.asteroid")
 
 -------------------------------------------------------------------------------
 -- Змінні, які зберігають стан гри та всіх ігрових об'єктів.
@@ -390,6 +57,14 @@ STATES = {
 }
 local game_state = STATES.HELLO
 
+-- Варіанти звуку
+SOUND_MODES = {
+    None = 0,      -- Немає
+    Buzzer = 1,    -- Використовуємо buzzer для відтворення мелодій
+    Audio = 2,     -- Використовуємо аудіо для відтворення звуків
+}
+local sound_mode = SOUND_MODES.Buzzer
+local sound_mode_name = 'Buzzer'
 -------------------------------------------------------------------------------
 -- Головні цикли гри
 -------------------------------------------------------------------------------
@@ -398,13 +73,25 @@ local game_state = STATES.HELLO
 -- Цикл обробки введення та оновлення стану гри
 --
 function lilka.update(delta)
+    -- Отримуємо стан контролера та обробляємо введення
+    local keyboard = controller.get_state()
+
     if game_state == STATES.HELLO then
         -- Якщо гравець натиснув кнопку "Старт", то починаємо гру
-        if controller.get_state().start.just_pressed then
+        if keyboard.start.just_pressed then
             game_state = STATES.IN_GAME
             ship = Ship:new()
             bullets = {}
             asteroids = {}
+        end
+        if keyboard.select.just_pressed then
+            sound_mode = (sound_mode + 1) % 3
+            for name, value in pairs(SOUND_MODES) do
+                if sound_mode == value then
+                    sound_mode_name = name
+                    break
+                end
+            end
         end
     else
         -- Оновлюємо стан корабля, куль та астероїдів
@@ -428,41 +115,38 @@ function lilka.update(delta)
             end
         end
 
-        -- Отримуємо стан контролера та обробляємо введення
-        local state = controller.get_state()
-
         -- Керуємо кораблем, якщо він не мертвий
         if not ship.dead then
             -- Рух вперед та назад
-            if state.up.pressed then
+            if keyboard.up.pressed then
                 ship:set_forward_acceleration(100)
-            elseif state.down.pressed then
+            elseif keyboard.down.pressed then
                 ship:set_forward_acceleration(-100)
             else
                 ship:set_forward_acceleration(0)
             end
 
             -- Поворот корабля
-            if state.left.pressed then
+            if keyboard.left.pressed then
                 ship:set_angular_speed(-180)
-            elseif state.right.pressed then
+            elseif keyboard.right.pressed then
                 ship:set_angular_speed(180)
             else
                 ship:set_angular_speed(0)
             end
 
             -- Стрільба
-            if state.a.just_pressed then
+            if keyboard.a.just_pressed then
                 local dir_x, dir_y = math.rotate(1, 0, ship.rotation)
                 local bullet = Bullet:new(ship.x + dir_x * ship.width / 2, ship.y + dir_y * ship.height / 2)
                 bullet.speed_x = ship.speed_x / 2 + display.width * dir_x
                 bullet.speed_y = ship.speed_y / 2 + display.width * dir_y
                 table.insert(bullets, bullet)
-                buzzer.play_melody(SHOOT_SOUND, 600)
+                playsound(data.SHOOT_MELODY, data.SHOOT_SOUND)
             end
 
             -- Вихід з гри
-            if state.start.just_pressed then
+            if keyboard.start.just_pressed then
                 util.exit()
             end
         end
@@ -505,7 +189,7 @@ function lilka.update(delta)
                         -- Якщо куля влучила в астероїд, то вони обидвоє вмирають
                         asteroid:kill()
                         bullet:kill()
-                        buzzer.play_melody(BOOM_SOUND, 400)
+                        playsound(data.BOOM_MELODY, data.BOOM_SOUND)
                     end
                 end
                 if math.dist(asteroid.x, asteroid.y, ship.x, ship.y) < (asteroid.sprite.width / 3 + ship.width / 2) then
@@ -515,14 +199,14 @@ function lilka.update(delta)
                         asteroid:kill()
                         ship:kill()
                         game_state = STATES.GAME_OVER
-                        buzzer.play_melody(DEATH_SOUND, 400)
+                        playsound(data.DEATH_MELODY, data.DEATH_SOUND)
                     end
                 end
             end
         end
         if game_state == STATES.GAME_OVER then
             -- Якщо гравець мертвий, то він може натиснути кнопку "Старт", щоб почати гру знову
-            if state.start.just_pressed then
+            if keyboard.start.just_pressed then
                 game_state = STATES.HELLO
             end
         end
@@ -533,23 +217,27 @@ end
 -- Цикл малювання гри
 --
 function lilka.draw()
+    display.fill_screen(BLACK)
     if game_state == STATES.HELLO then
         -- Виводимо початковий екран
-        local banner = BANNER[math.random(1, 4)]
-        display.fill_screen(BLACK)
+        local banner = data.BANNER[math.random(1, #data.BANNER)]
         display.draw_image(
             banner,
             display.width / 2 - banner.width / 2,
             display.height / 2 - banner.height / 2
         )
         display.draw_image(
-            PRESS_START,
-            display.width / 2 - PRESS_START.width / 2,
-            display.height - PRESS_START.height - 32
+            data.PRESS_START,
+            display.width / 2 - data.PRESS_START.width / 2,
+            display.height - data.PRESS_START.height - 32
         )
+
+        display.set_font("9x15")
+        display.set_text_color(WHITE);
+        display.set_cursor(32, 16)
+        display.print(string.format("Звук: %s", sound_mode_name))
     else
         -- Малюємо корабель, кулі та астероїди
-        display.fill_screen(BLACK)
         ship:draw()
         for _, bullet in ipairs(bullets) do
             bullet:draw()
@@ -560,15 +248,29 @@ function lilka.draw()
         if game_state == STATES.GAME_OVER then
             -- Якщо гравець мертвий, то виводимо повідомлення про кінець гри
             display.draw_image(
-                YOU_ARE_DEAD,
-                display.width / 2 - YOU_ARE_DEAD.width / 2,
-                display.height / 2 - YOU_ARE_DEAD.height / 2
+                data.YOU_ARE_DEAD,
+                display.width / 2 - data.YOU_ARE_DEAD.width / 2,
+                display.height / 2 - data.YOU_ARE_DEAD.height / 2
             )
             display.draw_image(
-                PRESS_START,
-                display.width / 2 - PRESS_START.width / 2,
-                display.height - PRESS_START.height - 32
+                data.PRESS_START,
+                display.width / 2 - data.PRESS_START.width / 2,
+                display.height - data.PRESS_START.height - 32
             )
         end
+    end
+
+    -- Виводимо інформацію про вільну та загальну пам'ять
+    -- display.set_font("9x15")
+    -- display.set_text_color(WHITE);
+    -- display.set_cursor(128, 24)
+	-- display.print(string.format("%dkB/%dkB", math.floor(util.free_ram() / 1024), math.floor(util.total_ram() / 1024)))
+end
+
+function playsound(melody, sound)
+    if sound_mode == SOUND_MODES.Buzzer then
+        buzzer.play_melody(melody, 600)
+    elseif sound_mode == SOUND_MODES.Audio then
+        audio.play(sound)
     end
 end
